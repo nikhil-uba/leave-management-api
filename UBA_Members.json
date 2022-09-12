@@ -1,0 +1,28 @@
+[
+    {
+        "name": "Ajit",
+        "email": "khanal.ajeeth32@gmail.com",
+        "password": "password"
+       
+    },
+    {
+        "name": "Satish",
+        "email": "thapatsatish@gmail.com",
+        "password": "password"
+    },
+    {
+        "name": "User1",
+        "email": "User1@gmail.com",
+        "password": "password"
+    },
+    {
+        "name": "User2",
+        "email": "User2@gmail.com",
+        "password": "password"
+    },
+    {
+        "name": "User3",
+        "email": "User3@gmail.com",
+        "password": "password"
+    }
+]
