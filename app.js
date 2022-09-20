@@ -1,24 +1,22 @@
-require('dotenv').config();
-require('express-async-errors')
-const authenticateUser = require('./middlewares/authentication')
-const express = require('express')
-const  app = express()
+require("dotenv").config();
+require("express-async-errors");
+const authenticateUser = require("./middlewares/authentication");
+const express = require("express");
+const app = express();
 
-const connectDB = require('./db/connect')
+const connectDB = require("./db/connect");
 
-const authRouter = require('./routes/auth');
-const profileRouter = require('./routes/profile');
-const userRouter = require('./routes/user')
-
-
-
+const authRouter = require("./routes/auth");
+const profileRouter = require("./routes/profile");
+const userRouter = require("./routes/user");
+const leaveRouter = require("./routes/leave")
 
 app.use(express.json());
 
-
-app.use('/api/v1/auth',authRouter);
-app.use('/api/v1/profiles',authenticateUser,profileRouter);
-app.use('/api/v1/users',authenticateUser,userRouter);
+app.use("/api/v1/auth", authRouter);
+app.use("/api/v1/profiles", authenticateUser, profileRouter);
+app.use("/api/v1/users", authenticateUser, userRouter);
+app.use("/api/v1/profiles", authenticateUser, leaveRouter);
 
 
 const port = process.env.PORT || 5000;
