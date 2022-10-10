@@ -1,17 +1,21 @@
 const Profile = require("../model/profile");
-const User = require("../model/User");
-const Admins = require("../Admins");
+const Admins = require("../model/Admin")
 
 const createProfile = async (req, res) => {
+
+
+  const userEmail = req.user.email
+  const enteredEmail = req.body.email
+
+
+  if(userEmail != enteredEmail){
+    return res.status(400).json({msg:'Please enter your registered email'});
+  }
+
+
   req.body.profileOf = req.user.userId;
-  //const checkProfile = req.body.profileOf;
-
-  //const profileExists = await Profile.find({ profileOf: checkProfile });
-  //const userEmail = req.user.email
-  //if(userEmail == req.body.email){
-    //return res.status(400).json({msg:'Please enter your registered email'});
-  //}
-
+  const checkProfile = req.body.profileOf;
+  const profileExists = await Profile.find({ profileOf: checkProfile });
   if (profileExists == null || profileExists.length == "0") {
     const profile = await Profile.create(req.body);
     return res.status(200).json({ profile });
@@ -22,25 +26,19 @@ const createProfile = async (req, res) => {
 
 //admins can access all profiles
 const getAllProfiles = async (req, res) => {
-  const {
-    user: { userId },
-  } = req;
 
-  const canAccess = await User.findOne({
-    _id: userId,
-  });
+  const ID = req.user.userId;
+    const userFound = await Admins.findOne({userID : ID})
+    console.log(userFound);
+    if(!userFound){
+        return res.status(404).json({msg:`You are not an admin`})
+    }
+    else{
+      const profiles = await Profile.find({});
+      return res.status(200).json({ profiles });
+    }
 
-  if (!canAccess) {
-    return res.status(404).json({ msg: "You may not be logged in" });
-  }
-  if (Admins.includes(canAccess.email)) {
-    const profiles = await Profile.find({});
-    return res.status(200).json({ profiles });
-  }
 
-  res
-    .status(200)
-    .send("Please pass your userID as paramteter to access your profile");
 };
 
 //we dont know the profile id yet
@@ -66,7 +64,6 @@ const getProfile = async (req, res) => {
 const deleteProfile = async (req, res) => {
   //this userId gives the id of the individual that is logged in
   const {
-    user: { userId },
     params: { id: profileId },
   } = req;
 
@@ -74,20 +71,22 @@ const deleteProfile = async (req, res) => {
     _id: profileId,
   });
 
-  const requestedBy = await User.findOne({
-    _id: userId,
-  });
-
-  if (Admins.includes(requestedBy.email)) {
-    await Profile.findOneAndDelete({ _id: profileId });
-    return res.status(200).json("Removed Profile Successfully");
-  }
 
   if (!userProfile) {
     res.status(404).json("Profile Not Available");
   }
 
-  res.status(401).json("You are not admin");
+  const ID = req.user.userId;
+    const userFound = await Admins.findOne({userID : ID})
+    console.log(userFound);
+    if(!userFound){
+        return res.status(404).json({msg:`You are not an admin`})
+    }
+    else{
+      await Profile.findOneAndDelete({ _id: profileId });
+      return res.status(200).json("Removed Profile Successfully");
+    }
 };
+
 
 module.exports = { getAllProfiles, getProfile, createProfile, deleteProfile };

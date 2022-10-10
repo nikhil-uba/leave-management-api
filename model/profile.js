@@ -6,6 +6,10 @@ name:{
     type:String,
     required:[true,'Please provide your name']
 },
+email:{
+  type:String,
+  required:[true,'Please enter your registered email']
+},
 department:{
     type:String,
     required:[true,'Please specify your working department']

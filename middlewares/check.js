@@ -1,21 +1,18 @@
-const profile = require('../model/User')
+/* const User = require('../model/User')
 
 const isAdmin = async (req,res,next)=>{
-    const {params:{id}} = req
-    
-    const userProfile = await profile.findOne({
-        profileOf : id
-    })
-    if(!userProfile){
-        return res.status(404).json({msg:"Profile Not Available"})
+  try {
+    const ID = req.user.userId;
+    const userFound = User.findOne({_id:ID})
+    if(!userFound){
+        return res.status(404).json({msg:`You are not an admin`})
     }
-    if(userProfile.department == 'HR'){
-        next()
-        return
-    }
-    else{
-        res.status(401).json('You are not admin.')
-    }
+    next()
+  } catch (error) {
+    res.status(404).json({msg:`Unknown error`})
+    console.log('Unknown Error');
+    return
+  }
 }
 
-module.exports = isAdmin
+module.exports = isAdmin */

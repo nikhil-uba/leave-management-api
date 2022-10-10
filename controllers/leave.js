@@ -1,8 +1,12 @@
+require('dotenv').config();
 const Profile = require("../model/profile");
-const User = require("../model/User");
-const Admins = require("../Admins");
+const Leave = require('../model/leave')
+const nodemailer = require('nodemailer');
 
-const applyForLeave = async (req, res) => {
+
+const getEmails = async (req, res) => {
+ 
+
   const appliedBy = req.user.userId ;//req.user.email
  
   if(!appliedBy){
@@ -14,27 +18,74 @@ const applyForLeave = async (req, res) => {
   if (!appliedByUser) {
     return res.status(404).json({ msg: "You may not be logged in" });
   }
-  var appliersTeam = appliedByUser.team;
+  let appliersTeam = appliedByUser.team;
 
   const appliersTeammates = await Profile.find({ team: appliersTeam });
-  
-  teammateIds = []
+
+  teammateEmails = []
+
   appliersTeammates.forEach(teammate =>{
-    return teammateIds.push(teammate.profileOf);
-  })
-
-  teammateUsers = []
-
-  teammateIds.forEach(async id =>{
-    let teammateUserDetails = await User.findOne({_id:id});
-    console.log(teammateUserDetails.email);
-    if(!(teammateUserDetails.email in teammateUsers)){
-    	return teammateUsers.push(teammateUserDetails.email)
+    if(teammate.email != req.user.email){
+      return teammateEmails.push(teammate.email);
     }
   })
 
-  console.log(teammateUsers);
+  ////////----------------------------/*///////////////
+
+let ccEmails = [req.body.to]
+messageReceivers = teammateEmails.concat(ccEmails);
+
+const requestor = req.user.email;
+let leaveOf = req.body.leaveTakenBy
+let subject = req.body.subject
+let text = req.body.text
+
+
+if(leaveOf == requestor){
+  
+await Leave.create({ leaveTakenBy : leaveOf, to : messageReceivers, subject : subject, text : text})
+ 
+}
+
+
+
+
+
+
+
+
+
+
+
+
+//////////--------------------///////////////
+  let transporter = nodemailer.createTransport({
+    host: 'smtp.gmail.com',
+    port: 465,
+    secure: true,
+    auth:{
+      user:process.env.GMAIL_EMAIL,
+      pass:process.env.GMAIL_PASSWORD
+    }
+  });
+
+  let mailOptions = {
+    from:process.env.GMAIL_EMAIL,
+    to:messageReceivers,
+    subject:'Sending Email using nodemailer',
+    text:"Random try"
+  }
+
+  transporter.sendMail(mailOptions, function(err,info){
+    if(err){
+      console.log(err);
+    }else{
+      console.log('Email sent :' + info.response);
+    }
+  });
+  res.status(200).json({msg:"Sent email"})
+
 };
 
 
-module.exports = applyForLeave;
+module.exports = {getEmails};

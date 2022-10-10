@@ -2,13 +2,9 @@
     {
         "name": "Ajit",
         "email": "khanal.ajeeth32@gmail.com",
-        "password": "password"
+        "password": "password",
+        "role":"admin"
        
-    },
-    {
-        "name": "Satish",
-        "email": "thapatsatish@gmail.com",
-        "password": "password"
     },
     {
         "name": "User1",

@@ -10,6 +10,7 @@ const authRouter = require("./routes/auth");
 const profileRouter = require("./routes/profile");
 const userRouter = require("./routes/user");
 const leaveRouter = require("./routes/leave")
+const adminRouter = require('./routes/admin')
 
 app.use(express.json());
 
@@ -17,6 +18,8 @@ app.use("/api/v1/auth", authRouter);
 app.use("/api/v1/profiles", authenticateUser, profileRouter);
 app.use("/api/v1/users", authenticateUser, userRouter);
 app.use("/api/v1/profiles", authenticateUser, leaveRouter);
+app.use("/api/v1/admins", authenticateUser, adminRouter);
+
 
 
 const port = process.env.PORT || 5000;

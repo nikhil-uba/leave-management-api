@@ -19,8 +19,12 @@ const UserSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Please provide password'],
     minlength: 6,
+  },
+  role: {
+    type: String,
+    enum: ["admin","employee"],
+    default:'employee'
   }
-  
 });
 
 
@@ -31,7 +35,7 @@ UserSchema.pre('save',async function (){
 
 UserSchema.methods.createJWT = function () {
   return jwt.sign(
-    { userId: this._id, name: this.name },
+    { userId: this._id, name: this.name ,email: this.email},
     process.env.JWT_SECRET
   )
 }

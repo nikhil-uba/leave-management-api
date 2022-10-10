@@ -3,15 +3,10 @@ const mongoose = require("mongoose");
 const LeaveSchema = new mongoose.Schema({
     leaveTakenBy:{
         type:String,
-        required:[true,'Please specify your profileID']
-    },
-    from:{
-        //it will be mine account for now
-        //later we can create account called ubaleavesupport
-        type:String
+        required:[true,'Please enter your email']
     },
     to:{
-        type:String,
+        type:Array
     },
     subject:{
         type:String,
@@ -19,8 +14,7 @@ const LeaveSchema = new mongoose.Schema({
     },
     text:{
         type:String,
-        required:[true,'Please explain your reason'],
-        maxlength:200
+        default:"I will not be able to come to work today. Sorry for the inconvenience"
     }
 },
 {timestamps:true}
