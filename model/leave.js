@@ -1,23 +1,25 @@
 const mongoose = require("mongoose");
 
-const LeaveSchema = new mongoose.Schema({
-    leaveTakenBy:{
-        type:String,
-        required:[true,'Please enter your email']
+const LeaveSchema = new mongoose.Schema(
+  {
+    leaveTakenBy: {
+      type: String,
+      required: [true, "Please enter your email"],
     },
-    to:{
-        type:Array
+    to: {
+      type: Array,
     },
-    subject:{
-        type:String,
-        default:"About taking a day off."
+    subject: {
+      type: String,
+      required: [true, "Please enter the subjcet for the mail/leave"],
     },
-    text:{
-        type:String,
-        default:"I will not be able to come to work today. Sorry for the inconvenience"
-    }
-},
-{timestamps:true}
-)
+    text: {
+      type: String,
+      required: [true, "Please provide description in less than 200 words"],
+      maxlength: 200,
+    },
+  },
+  { timestamps: true }
+);
 
 module.exports = mongoose.model("leave", LeaveSchema);

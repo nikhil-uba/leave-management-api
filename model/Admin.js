@@ -1,16 +1,17 @@
 const mongoose = require("mongoose");
 
-const AdminSchema = new mongoose.Schema({
-    userID : {
-        type:String,
-        required: [true,"Please provide the userId"]
+const AdminSchema = new mongoose.Schema(
+  {
+    userID: {
+      type: String,
+      required: [true, "Please provide the userId"],
     },
-    name:{
-        type:String,
-        required: [true,"Please provide the name"]
-    }
-},
-{timestamps:true}
-)
+    name: {
+      type: String,
+      required: [true, "Please provide the name"],
+    },
+  },
+  { timestamps: true }
+);
 
 module.exports = mongoose.model("admin", AdminSchema);
