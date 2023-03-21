@@ -1,8 +1,8 @@
 [
   {
-    "name": "Ajit",
-    "email": "khanal.ajeeth32@gmail.com",
-    "password": "password"
+    "name": "admin",
+    "email": "admin@test.com",
+    "password": "123456"
   },
   {
     "name": "User1",

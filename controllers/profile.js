@@ -1,4 +1,4 @@
-const Profile = require("../model/profile");
+const Profile = require("../model/Profile");
 const Admins = require("../model/Admin");
 
 const createProfile = async (req, res) => {
@@ -10,6 +10,8 @@ const createProfile = async (req, res) => {
   }
 
   req.body.profileOf = req.user.userId;
+  req.body.name = req.user.name;
+  req.body.email = req.user.email;
   const checkProfile = req.body.profileOf;
   const profileExists = await Profile.find({ profileOf: checkProfile });
   if (profileExists == null || profileExists.length == "0") {
@@ -83,11 +85,9 @@ const updateProfile = async (req, res) => {
   } = req;
 
   if (name === "" || team === "" || department == "") {
-    res
-      .status(403)
-      .json({
-        msg: "Please be sure to fill all the available fields to update",
-      });
+    res.status(403).json({
+      msg: "Please be sure to fill all the available fields to update",
+    });
   }
 
   const updatedProfile = await Profile.findOneAndUpdate(

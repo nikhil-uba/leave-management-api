@@ -20,17 +20,23 @@ const userRouter = require("./routes/user");
 const leaveRouter = require("./routes/leave");
 const adminRouter = require("./routes/admin");
 
+const corsOptions = {
+  origin: "*",
+  methods: ["OPTIONS", "GET", "HEAD", "PUT", "PATCH", "POST", "DELETE"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+};
+
 app.set("trust proxy", 1);
 app.use(
   rateLimiter({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100, // limit each IP to 100 requests per windowMs
+    max: 100, // limit each IP to 100 requests per windows
   })
 );
 
 app.use(express.json());
 app.use(helmet());
-app.use(cors());
+app.use(cors(corsOptions));
 app.use(xss());
 
 app.use("/api/v1/auth", authRouter);

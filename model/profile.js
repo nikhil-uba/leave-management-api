@@ -22,7 +22,6 @@ const ProfileSchema = new mongoose.Schema(
       type: Number,
       default: 25,
     },
-
     profileOf: {
       type: mongoose.Types.ObjectId,
       ref: "User",
@@ -32,4 +31,4 @@ const ProfileSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-module.exports = mongoose.model("profile", ProfileSchema);
+module.exports = mongoose.model("Profile", ProfileSchema);

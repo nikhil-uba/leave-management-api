@@ -1,18 +1,37 @@
 require("dotenv").config();
-const Profile = require("../model/profile");
+const Profile = require("../model/Profile");
 const Admins = require("../model/Admin");
-const Leave = require("../model/leave");
+const Leave = require("../model/Leave");
 const nodemailer = require("nodemailer");
 
 const takeLeave = async (req, res) => {
-  const appliersEmail = req.user.email;
-  const appliedBy = req.user.userId; //req.user.email
+  const userId = req.user.userId;
+  const email = req.user.email;
+  const squad = req.body.squad;
+  const leaveType = req.body.leaveType;
+  const leaveStart = req.body.leaveStart;
+  const fromDate = req.body.fromDate;
+  const toDate = req.body.toDate;
+  const leaveDetail = req.body.leaveDetail;
+  const sendEmail = req.body.sendEmail;
 
-  if (!appliedBy) {
+  console.log({
+    userId,
+    email,
+    squad,
+    leaveType,
+    leaveStart,
+    fromDate,
+    toDate,
+    leaveDetail,
+    emailSent: sendEmail,
+  });
+
+  if (!userId) {
     res.status(400).json({ msg: "You aren't logged in" });
   }
   const appliedByUser = await Profile.findOne({
-    profileOf: appliedBy,
+    profileOf: userId,
   });
   if (!appliedByUser) {
     return res
@@ -25,10 +44,14 @@ const takeLeave = async (req, res) => {
   if (totalLeaveRemaining > 0) {
     let appliersTeam = appliedByUser.team;
 
-    const appliersTeammates = await Profile.find({ team: appliersTeam });
+    const appliersTeammates = await Profile.find(
+      { team: appliersTeam },
+      "email"
+    );
 
-    teammateEmails = [];
+    console.log(appliersTeammates);
 
+    let teammateEmails = [];
     appliersTeammates.forEach((teammate) => {
       if (teammate.email != req.user.email) {
         return teammateEmails.push(teammate.email);
@@ -40,54 +63,58 @@ const takeLeave = async (req, res) => {
     let ccEmails = [req.body.to];
     messageReceivers = teammateEmails.concat(ccEmails);
 
-    const requestor = req.user.email;
-    let leaveOf = req.body.leaveTakenBy;
-    let subject = req.body.subject;
-    let text = req.body.text;
+    const leave = await Leave.create({
+      userId,
+      email,
+      squad,
+      leaveType,
+      leaveStart,
+      fromDate,
+      toDate,
+      leaveDetail,
+      emailSent: sendEmail,
+    });
 
-    if (leaveOf == requestor) {
-      await Leave.create({
-        leaveTakenBy: leaveOf,
-        to: messageReceivers,
-        subject: subject,
-        text: text,
-      });
+    await Profile.findOneAndUpdate(
+      { email: email },
+      { LeavesRemaining: Number(totalLeaveRemaining - 1) }
+    );
 
-      await Profile.findOneAndUpdate(
-        { email: appliersEmail },
-        { LeavesRemaining: Number(totalLeaveRemaining - 1) }
-      );
-
-      ///updateOne garda 1st ma bhako ko hatdo raixa
-      //use findOneAndUpdate.
-    }
+    ///updateOne garda 1st ma bhako ko hatdo raixa
+    //use findOneAndUpdate.
 
     //////////--------------------///////////////
-    let transporter = nodemailer.createTransport({
-      host: process.env.HOST,
-      port: 465,
-      secure: true,
-      auth: {
-        user: process.env.GMAIL_EMAIL,
-        pass: process.env.GMAIL_PASSWORD,
-      },
-    });
+    if (sendEmail) {
+      let transporter = nodemailer.createTransport({
+        host: process.env.HOST,
+        port: 465,
+        secure: true,
+        auth: {
+          user: process.env.GMAIL_EMAIL,
+          pass: process.env.GMAIL_PASSWORD,
+        },
+      });
 
-    let mailOptions = {
-      from: process.env.GMAIL_EMAIL,
-      to: messageReceivers,
-      subject: subject,
-      text: text,
-    };
+      let mailOptions = {
+        from: process.env.GMAIL_EMAIL,
+        to: messageReceivers,
+        subject: `${leaveStart}:${leaveType} Leave from ${new Date(
+          fromDate
+        )} to ${Date(toDate)} `,
+        text: leaveDetail,
+      };
 
-    transporter.sendMail(mailOptions, function (err, info) {
-      if (err) {
-        console.log(err);
-      } else {
-        console.log("Email sent :" + info.response);
-      }
-    });
-    res.status(200).json({ msg: "Sent email" });
+      transporter.sendMail(mailOptions, function (err, info) {
+        if (err) {
+          console.log(err);
+        } else {
+          console.log("Email sent :" + info.response);
+        }
+      });
+      res.status(200).json({ msg: "Leave Email Sent with success" });
+    } else {
+      res.status(200).json({ msg: "Leave taken successfully." });
+    }
   } else {
     res.status(400).send(`You've already used all your leaves`);
   }
