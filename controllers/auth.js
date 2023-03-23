@@ -5,7 +5,12 @@ const register = async (req, res) => {
     const user = await User.create({ ...req.body });
     const token = user.createJWT();
     console.log("User created");
-    res.status(200).json({ user: { name: user.name, id: user.id }, token });
+    res
+      .status(200)
+      .json({
+        user: { userId: user._id, username: user.username, email: user.email },
+        token,
+      });
   } catch (error) {
     res.send(error);
   }
@@ -28,7 +33,7 @@ const login = async (req, res) => {
   }
   const token = user.createJWT();
   res.status(200).json({
-    user: { id: user._id, name: user.name, email: user.email },
+    user: { userId: user._id, username: user.username, email: user.email },
     token,
   });
 };

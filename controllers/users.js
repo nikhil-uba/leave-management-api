@@ -1,15 +1,14 @@
 const User = require("../model/User");
-const Admin = require("../model/Admin");
 const mongoose = require("mongoose");
 
 const getAllUsers = async (req, res) => {
-  const ID = req.user.userId;
-  const userFound = await Admin.findOne({ userID: ID });
-  console.log(userFound);
-  if (!userFound) {
+  const id = req.user.userId;
+  const user = await User.findOne({ _id: id, isAdmin: true });
+  console.log(user);
+  if (!user) {
     return res.status(404).json({ msg: `You are not an admin` });
   }
-  const users = await User.find({});
+  const users = await User.find().select("-password");
   return res.status(200).json({ users });
 };
 
@@ -32,13 +31,17 @@ const getUser = async (req, res) => {
 
   const user = await User.findOne({
     _id: new mongoose.Types.ObjectId(req.params.id),
-  });
+  }).select("-password");
   if (!user) {
     return res.status(404).json({ error: "User not found" });
   }
-  return res
-    .status(200)
-    .json({ userId: user._id, name: user.name, email: user.email });
+  return res.status(200).json({
+    userId: user._id,
+    username: user.username,
+    email: user.email,
+    isAdmin: user.isAdmin,
+    hasProfile: user.hasProfile,
+  });
 };
 
 module.exports = { getUser, getAllUsers };

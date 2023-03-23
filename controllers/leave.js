@@ -1,6 +1,5 @@
 require("dotenv").config();
-const Profile = require("../model/Profile");
-const Admins = require("../model/Admin");
+const User = require("../model/User");
 const Leave = require("../model/Leave");
 const nodemailer = require("nodemailer");
 
@@ -14,54 +13,41 @@ const takeLeave = async (req, res) => {
   const toDate = req.body.toDate;
   const leaveDetail = req.body.leaveDetail;
   const sendEmail = req.body.sendEmail;
-
-  console.log({
-    userId,
-    email,
-    squad,
-    leaveType,
-    leaveStart,
-    fromDate,
-    toDate,
-    leaveDetail,
-    emailSent: sendEmail,
-  });
+  const attachment = req.body.attachment;
 
   if (!userId) {
     res.status(400).json({ msg: "You aren't logged in" });
   }
-  const appliedByUser = await Profile.findOne({
-    profileOf: userId,
+  const appliedByUser = await User.findOne({
+    _id: userId,
   });
-  if (!appliedByUser) {
+  if (!appliedByUser.hasProfile) {
     return res
       .status(404)
       .json({ msg: "Profile not found, you sure you made one?" });
   }
 
-  let totalLeaveRemaining = appliedByUser.LeavesRemaining;
+  let totalLeavesRemaining = appliedByUser.leavesRemaining;
+  let totalLeavesTaken = appliedByUser.leavesTaken;
 
-  if (totalLeaveRemaining > 0) {
-    let appliersTeam = appliedByUser.team;
+  if (totalLeavesRemaining > 0) {
+    let applierSquad = appliedByUser.squad;
 
-    const appliersTeammates = await Profile.find(
-      { team: appliersTeam },
-      "email"
-    );
+    const applierSquadMates = await User.find({ squad: applierSquad }, "email");
 
-    console.log(appliersTeammates);
+    console.log(applierSquadMates);
 
-    let teammateEmails = [];
-    appliersTeammates.forEach((teammate) => {
-      if (teammate.email != req.user.email) {
-        return teammateEmails.push(teammate.email);
+    let squadMateEmails = [];
+    applierSquadMates.forEach((squadMate) => {
+      if (squadMate.email != req.user.email) {
+        return squadMateEmails.push(squadMate.email);
       }
     });
 
     ////////----------------------------/*///////////////
 
     let ccEmails = [req.body.to];
-    messageReceivers = teammateEmails.concat(ccEmails);
+    messageReceivers = squadMateEmails.concat(ccEmails);
 
     const leave = await Leave.create({
       userId,
@@ -72,12 +58,18 @@ const takeLeave = async (req, res) => {
       fromDate,
       toDate,
       leaveDetail,
-      emailSent: sendEmail,
+      sendEmail,
     });
 
-    await Profile.findOneAndUpdate(
+    await User.findOneAndUpdate(
       { email: email },
-      { LeavesRemaining: Number(totalLeaveRemaining - 1) }
+      {
+        leavesRemaining: Number(totalLeavesRemaining - 1),
+        leavesTaken: Number(totalLeavesTaken + 1),
+      },
+      {
+        new: true,
+      }
     );
 
     ///updateOne garda 1st ma bhako ko hatdo raixa
@@ -123,21 +115,21 @@ const takeLeave = async (req, res) => {
 const getRemainingLeaves = async (req, res) => {
   const requestor = req.user.email;
 
-  const validRequest = await Profile.findOne({ email: requestor });
+  const validRequest = await User.findOne({ email: requestor });
 
   if (!validRequest) {
     return res.status(500).send("something went wrong. Try again");
   }
 
-  const LeaveRemaining = validRequest.LeavesRemaining;
+  const leavesRemaining = validRequest.leavesRemaining;
 
   res
     .status(200)
-    .json({ msg: `your remaining leaves are ${LeaveRemaining} days` });
+    .json({ msg: `your remaining leaves are ${leavesRemaining} days` });
 };
 
 const viewMyLeaveDetails = async (req, res) => {
-  const myLeaves = await Leave.find({ leaveTakenBy: req.user.email });
+  const myLeaves = await Leave.find({ userId: req.user.userId });
 
   if (!myLeaves) {
     return res.status(400).send("You have not taken any leaves yet");
@@ -147,22 +139,22 @@ const viewMyLeaveDetails = async (req, res) => {
 };
 
 const viewEmployeesLeave = async (req, res) => {
-  const ID = req.user.userId;
-  const userFound = await Admins.findOne({ userID: ID });
+  const id = req.user.userId;
+  const userFound = await User.findOne({ _id: id, isAdmin: true });
 
   if (!userFound) {
     return res.status(404).json({ msg: `You are not an admin` });
   }
 
-  const employeesLevaeDetails = await Leave.find({
+  const employeesLeaveDetails = await Leave.find({
     leaveTakenBy: req.body.email,
   });
-  if (!employeesLevaeDetails) {
+  if (!employeesLeaveDetails) {
     return res.status(400).send("The employee has not taken any leaves yet");
   }
   res
     .status(200)
-    .json({ employeesLevaeDetails, count: employeesLevaeDetails.length });
+    .json({ employeesLeaveDetails, count: employeesLeaveDetails.length });
 };
 module.exports = {
   takeLeave,

@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const fileSchema = require("./File");
 
 const LeaveSchema = new mongoose.Schema(
   {
@@ -7,11 +8,6 @@ const LeaveSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
-    email: {
-      type: String,
-      required: true,
-    },
-    squad: { type: String, required: true },
     leaveType: {
       type: String,
       required: true,
@@ -20,7 +16,13 @@ const LeaveSchema = new mongoose.Schema(
     fromDate: { type: Date, required: true },
     toDate: { type: Date, required: true },
     leaveDetail: { type: String, required: true, maxlength: 255 },
-    emailSent: { type: Boolean, required: true },
+    sendEmail: { type: Boolean, required: true },
+    attachment: [
+      {
+        type: fileSchema,
+        required: false,
+      },
+    ],
   },
   { timestamps: true }
 );
