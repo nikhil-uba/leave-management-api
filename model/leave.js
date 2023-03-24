@@ -1,25 +1,30 @@
 const mongoose = require("mongoose");
+const fileSchema = require("./File");
 
 const LeaveSchema = new mongoose.Schema(
   {
-    leaveTakenBy: {
+    userId: {
+      type: mongoose.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+    leaveType: {
       type: String,
-      required: [true, "Please enter your email"],
+      required: true,
     },
-    to: {
-      type: Array,
-    },
-    subject: {
-      type: String,
-      required: [true, "Please enter the subjcet for the mail/leave"],
-    },
-    text: {
-      type: String,
-      required: [true, "Please provide description in less than 200 words"],
-      maxlength: 200,
-    },
+    leaveStart: { type: String, required: true },
+    fromDate: { type: Date, required: true },
+    toDate: { type: Date, required: true },
+    leaveDetail: { type: String, required: true, maxlength: 255 },
+    sendEmail: { type: Boolean, required: true },
+    attachment: [
+      {
+        type: fileSchema,
+        required: false,
+      },
+    ],
   },
   { timestamps: true }
 );
 
-module.exports = mongoose.model("leave", LeaveSchema);
+module.exports = mongoose.model("Leave", LeaveSchema);

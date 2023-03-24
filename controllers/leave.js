@@ -1,93 +1,112 @@
 require("dotenv").config();
-const Profile = require("../model/profile");
-const Admins = require("../model/Admin");
-const Leave = require("../model/leave");
+const User = require("../model/User");
+const Leave = require("../model/Leave");
 const nodemailer = require("nodemailer");
 
 const takeLeave = async (req, res) => {
-  const appliersEmail = req.user.email;
-  const appliedBy = req.user.userId; //req.user.email
+  const userId = req.user.userId;
+  const email = req.user.email;
+  const squad = req.body.squad;
+  const leaveType = req.body.leaveType;
+  const leaveStart = req.body.leaveStart;
+  const fromDate = req.body.fromDate;
+  const toDate = req.body.toDate;
+  const leaveDetail = req.body.leaveDetail;
+  const sendEmail = req.body.sendEmail;
+  const attachment = req.body.attachment;
 
-  if (!appliedBy) {
+  if (!userId) {
     res.status(400).json({ msg: "You aren't logged in" });
   }
-  const appliedByUser = await Profile.findOne({
-    profileOf: appliedBy,
+  const appliedByUser = await User.findOne({
+    _id: userId,
   });
-  if (!appliedByUser) {
+  if (!appliedByUser.hasProfile) {
     return res
       .status(404)
       .json({ msg: "Profile not found, you sure you made one?" });
   }
 
-  let totalLeaveRemaining = appliedByUser.LeavesRemaining;
+  let totalLeavesRemaining = appliedByUser.leavesRemaining;
+  let totalLeavesTaken = appliedByUser.leavesTaken;
 
-  if (totalLeaveRemaining > 0) {
-    let appliersTeam = appliedByUser.team;
+  if (totalLeavesRemaining > 0) {
+    let applierSquad = appliedByUser.squad;
 
-    const appliersTeammates = await Profile.find({ team: appliersTeam });
+    const applierSquadMates = await User.find({ squad: applierSquad }, "email");
 
-    teammateEmails = [];
+    console.log(applierSquadMates);
 
-    appliersTeammates.forEach((teammate) => {
-      if (teammate.email != req.user.email) {
-        return teammateEmails.push(teammate.email);
+    let squadMateEmails = [];
+    applierSquadMates.forEach((squadMate) => {
+      if (squadMate.email != req.user.email) {
+        return squadMateEmails.push(squadMate.email);
       }
     });
 
     ////////----------------------------/*///////////////
 
     let ccEmails = [req.body.to];
-    messageReceivers = teammateEmails.concat(ccEmails);
+    messageReceivers = squadMateEmails.concat(ccEmails);
 
-    const requestor = req.user.email;
-    let leaveOf = req.body.leaveTakenBy;
-    let subject = req.body.subject;
-    let text = req.body.text;
+    const leave = await Leave.create({
+      userId,
+      email,
+      squad,
+      leaveType,
+      leaveStart,
+      fromDate,
+      toDate,
+      leaveDetail,
+      sendEmail,
+    });
 
-    if (leaveOf == requestor) {
-      await Leave.create({
-        leaveTakenBy: leaveOf,
-        to: messageReceivers,
-        subject: subject,
-        text: text,
-      });
+    await User.findOneAndUpdate(
+      { email: email },
+      {
+        leavesRemaining: Number(totalLeavesRemaining - 1),
+        leavesTaken: Number(totalLeavesTaken + 1),
+      },
+      {
+        new: true,
+      }
+    );
 
-      await Profile.findOneAndUpdate(
-        { email: appliersEmail },
-        { LeavesRemaining: Number(totalLeaveRemaining - 1) }
-      );
-
-      ///updateOne garda 1st ma bhako ko hatdo raixa
-      //use findOneAndUpdate.
-    }
+    ///updateOne garda 1st ma bhako ko hatdo raixa
+    //use findOneAndUpdate.
 
     //////////--------------------///////////////
-    let transporter = nodemailer.createTransport({
-      host: process.env.HOST,
-      port: 465,
-      secure: true,
-      auth: {
-        user: process.env.GMAIL_EMAIL,
-        pass: process.env.GMAIL_PASSWORD,
-      },
-    });
+    if (sendEmail) {
+      let transporter = nodemailer.createTransport({
+        host: process.env.HOST,
+        port: 465,
+        secure: true,
+        auth: {
+          user: process.env.GMAIL_EMAIL,
+          pass: process.env.GMAIL_PASSWORD,
+        },
+      });
 
-    let mailOptions = {
-      from: process.env.GMAIL_EMAIL,
-      to: messageReceivers,
-      subject: subject,
-      text: text,
-    };
+      let mailOptions = {
+        from: process.env.GMAIL_EMAIL,
+        to: messageReceivers,
+        subject: `${leaveStart}:${leaveType} Leave from ${new Date(
+          fromDate
+        )} to ${Date(toDate)} `,
+        text: leaveDetail,
+      };
 
-    transporter.sendMail(mailOptions, function (err, info) {
-      if (err) {
-        console.log(err);
-      } else {
-        console.log("Email sent :" + info.response);
-      }
-    });
-    res.status(200).json({ msg: "Sent email" });
+      transporter.sendMail(mailOptions, function (err, info) {
+        if (err) {
+          console.log(err);
+        } else {
+          console.log("Email sent :" + info.response);
+        }
+      });
+      res.status(200).json({ msg: "Leave Email Sent with success" });
+    } else {
+      res.status(200).json({ msg: "Leave taken successfully." });
+    }
   } else {
     res.status(400).send(`You've already used all your leaves`);
   }
@@ -96,21 +115,21 @@ const takeLeave = async (req, res) => {
 const getRemainingLeaves = async (req, res) => {
   const requestor = req.user.email;
 
-  const validRequest = await Profile.findOne({ email: requestor });
+  const validRequest = await User.findOne({ email: requestor });
 
   if (!validRequest) {
     return res.status(500).send("something went wrong. Try again");
   }
 
-  const LeaveRemaining = validRequest.LeavesRemaining;
+  const leavesRemaining = validRequest.leavesRemaining;
 
   res
     .status(200)
-    .json({ msg: `your remaining leaves are ${LeaveRemaining} days` });
+    .json({ msg: `your remaining leaves are ${leavesRemaining} days` });
 };
 
 const viewMyLeaveDetails = async (req, res) => {
-  const myLeaves = await Leave.find({ leaveTakenBy: req.user.email });
+  const myLeaves = await Leave.find({ userId: req.user.userId });
 
   if (!myLeaves) {
     return res.status(400).send("You have not taken any leaves yet");
@@ -120,22 +139,22 @@ const viewMyLeaveDetails = async (req, res) => {
 };
 
 const viewEmployeesLeave = async (req, res) => {
-  const ID = req.user.userId;
-  const userFound = await Admins.findOne({ userID: ID });
+  const id = req.user.userId;
+  const userFound = await User.findOne({ _id: id, isAdmin: true });
 
   if (!userFound) {
     return res.status(404).json({ msg: `You are not an admin` });
   }
 
-  const employeesLevaeDetails = await Leave.find({
+  const employeesLeaveDetails = await Leave.find({
     leaveTakenBy: req.body.email,
   });
-  if (!employeesLevaeDetails) {
+  if (!employeesLeaveDetails) {
     return res.status(400).send("The employee has not taken any leaves yet");
   }
   res
     .status(200)
-    .json({ employeesLevaeDetails, count: employeesLevaeDetails.length });
+    .json({ employeesLeaveDetails, count: employeesLeaveDetails.length });
 };
 module.exports = {
   takeLeave,

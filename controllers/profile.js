@@ -1,19 +1,16 @@
-const Profile = require("../model/profile");
-const Admins = require("../model/Admin");
+const User = require("../model/User");
 
 const createProfile = async (req, res) => {
-  const userEmail = req.user.email;
-  const enteredEmail = req.body.email;
+  const id = req.user.userId;
 
-  if (userEmail != enteredEmail) {
-    return res.status(400).json({ msg: "Please enter your registered email" });
-  }
+  const user = await User.findOne({ _id: id });
 
-  req.body.profileOf = req.user.userId;
-  const checkProfile = req.body.profileOf;
-  const profileExists = await Profile.find({ profileOf: checkProfile });
-  if (profileExists == null || profileExists.length == "0") {
-    const profile = await Profile.create(req.body);
+  if (!user.hasProfile) {
+    const profile = await User.findOneAndUpdate(
+      id,
+      { ...req.body, hasProfile: true },
+      { new: true, select: "-password" }
+    );
     return res.status(200).json({ profile });
   } else {
     return res.status(400).json("Your Profile already Exists");
@@ -22,13 +19,13 @@ const createProfile = async (req, res) => {
 
 //admins can access all profiles
 const getAllProfiles = async (req, res) => {
-  const ID = req.user.userId;
-  const userFound = await Admins.findOne({ userID: ID });
+  const id = req.user.userId;
+  const userFound = await User.findOne({ _id: id });
   console.log(userFound);
   if (!userFound) {
     return res.status(404).json({ msg: `You are not an admin` });
   } else {
-    const profiles = await Profile.find({});
+    const profiles = await User.find().select("-password");
     return res.status(200).json({ profiles });
   }
 };
@@ -39,9 +36,9 @@ const getProfile = async (req, res) => {
   //this userId is an alias of the id which is taken from parameter
   const requestor = req.user.email;
 
-  const userProfile = await Profile.findOne({
+  const userProfile = await User.findOne({
     email: requestor,
-  });
+  }).select("-password");
   if (!userProfile) {
     return res.status(404).json({ msg: "User Not Available" });
   } else {
@@ -56,7 +53,7 @@ const deleteProfile = async (req, res) => {
 
   const profileToDelete = req.body.email;
 
-  const userProfile = await Profile.findOne({
+  const userProfile = await User.findOne({
     email: profileToDelete,
   });
 
@@ -64,13 +61,13 @@ const deleteProfile = async (req, res) => {
     return res.status(404).json("Profile Not Available");
   }
 
-  const ID = req.user.userId;
-  const userFound = await Admins.findOne({ userID: ID });
+  const id = req.user.userId;
+  const userFound = await User.findOne({ _id: id, isAdmin: true });
   console.log(userFound);
   if (!userFound) {
     return res.status(404).json({ msg: `You are not an admin` });
   } else {
-    await Profile.findOneAndDelete({ email: profileToDelete });
+    await User.findOneAndDelete({ email: profileToDelete });
     return res.status(200).json("Removed Profile Successfully");
   }
 };
@@ -78,22 +75,11 @@ const deleteProfile = async (req, res) => {
 const updateProfile = async (req, res) => {
   //we can only update name team and department
   const requestor = req.user.email;
-  const {
-    body: { name, team, department },
-  } = req;
 
-  if (name === "" || team === "" || department == "") {
-    res
-      .status(403)
-      .json({
-        msg: "Please be sure to fill all the available fields to update",
-      });
-  }
-
-  const updatedProfile = await Profile.findOneAndUpdate(
+  const updatedProfile = await User.findOneAndUpdate(
     { email: requestor },
-    req.body,
-    { new: true, runValidators: true }
+    { ...req.body, hasProfile: true },
+    { new: true, runValidators: true, select: "-password" }
   );
 
   if (!updatedProfile) {

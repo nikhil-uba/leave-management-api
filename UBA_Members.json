@@ -1,22 +1,22 @@
 [
   {
-    "name": "Ajit",
-    "email": "khanal.ajeeth32@gmail.com",
+    "username": "admin",
+    "email": "admin@test.com",
+    "password": "123456"
+  },
+  {
+    "username": "admin1",
+    "email": "admin1@test.com",
+    "password": "123456"
+  },
+  {
+    "username": "user",
+    "email": "user@test.com",
     "password": "password"
   },
   {
-    "name": "User1",
-    "email": "User1@gmail.com",
-    "password": "password"
-  },
-  {
-    "name": "User2",
-    "email": "User2@gmail.com",
-    "password": "password"
-  },
-  {
-    "name": "User3",
-    "email": "User3@gmail.com",
+    "username": "user1",
+    "email": "user1@test.com",
     "password": "password"
   }
 ]

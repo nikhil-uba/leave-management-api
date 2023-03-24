@@ -4,7 +4,13 @@ const register = async (req, res) => {
   try {
     const user = await User.create({ ...req.body });
     const token = user.createJWT();
-    res.status(200).json({ user: { name: user.name, _id: user.id }, token });
+    console.log("User created");
+    res
+      .status(200)
+      .json({
+        user: { userId: user._id, username: user.username, email: user.email },
+        token,
+      });
   } catch (error) {
     res.send(error);
   }
@@ -26,12 +32,10 @@ const login = async (req, res) => {
     res.send("Invalid Credentials");
   }
   const token = user.createJWT();
-  res
-    .status(200)
-    .json({
-      userdetails: { id: user._id, name: user.name, email: user.email },
-      token,
-    });
+  res.status(200).json({
+    user: { userId: user._id, username: user.username, email: user.email },
+    token,
+  });
 };
 
 module.exports = { register, login };
