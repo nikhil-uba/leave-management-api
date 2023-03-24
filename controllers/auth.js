@@ -5,37 +5,39 @@ const register = async (req, res) => {
     const user = await User.create({ ...req.body });
     const token = user.createJWT();
     console.log("User created");
-    res
-      .status(200)
-      .json({
-        user: { userId: user._id, username: user.username, email: user.email },
-        token,
-      });
+    res.status(200).json({
+      user: { userId: user._id, username: user.username, email: user.email },
+      token,
+    });
   } catch (error) {
-    res.send(error);
+    res.status(401).json(error);
   }
 };
 
 const login = async (req, res) => {
-  const { email, password } = req.body;
+  try {
+    const { email, password } = req.body;
 
-  if (!email || !password) {
-    res.send("Please provide email and password");
+    if (!email || !password) {
+      res.status(400).json("Please provide email and password");
+    }
+    const user = await User.findOne({ email });
+    if (!user) {
+      res.status(401).json("Invalid Credentials");
+    }
+    // compare password
+    const isPasswordCorrect = await user.comparePassword(password);
+    if (!isPasswordCorrect) {
+      res.status(401).json("Invalid Credentials");
+    }
+    const token = user.createJWT();
+    res.status(200).json({
+      user: { userId: user._id, username: user.username, email: user.email },
+      token,
+    });
+  } catch (error) {
+    res.status(401).json(error);
   }
-  const user = await User.findOne({ email });
-  if (!user) {
-    res.send("Invalid Credentials");
-  }
-  // compare password
-  const isPasswordCorrect = await user.comparePassword(password);
-  if (!isPasswordCorrect) {
-    res.send("Invalid Credentials");
-  }
-  const token = user.createJWT();
-  res.status(200).json({
-    user: { userId: user._id, username: user.username, email: user.email },
-    token,
-  });
 };
 
 module.exports = { register, login };
