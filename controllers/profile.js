@@ -7,7 +7,7 @@ const createProfile = async (req, res) => {
 
   if (!user.hasProfile) {
     const profile = await User.findOneAndUpdate(
-      id,
+      { _id: id },
       { ...req.body, hasProfile: true },
       { new: true, select: "-password" }
     );

@@ -1,7 +1,7 @@
 //loading .env files in process.env
 require("dotenv").config();
 //importing other required items
-const connectDB = require("./db/connect");
+const connectDB = require("./util/db/connect");
 const jsonUsers = require("./UBA_Members.json");
 const jsonAdmins = require("./Admins.json");
 const User = require("./model/User");
