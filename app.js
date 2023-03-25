@@ -11,7 +11,7 @@ const multer = require("multer");
 const express = require("express");
 const app = express();
 
-const connectDB = require("./db/connect");
+const connectDB = require("./util/db/connect");
 const auth = require("./middleware/auth");
 
 //routers
@@ -54,7 +54,7 @@ app.set("trust proxy", 1);
 app.use(
   rateLimiter({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100, // limit each IP to 100 requests per windows
+    max: 1000, // limit each IP to 100 requests per windows
   })
 );
 

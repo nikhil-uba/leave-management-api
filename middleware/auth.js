@@ -21,6 +21,11 @@ const auth = async (req, res, next) => {
       isAdmin: payload.isAdmin,
       hasProfile: payload.hasProfile,
     };
+    if (req.url === "/hastoken") {
+      return res.status(200).json({
+        user: req.user,
+      });
+    }
     next();
   } catch (error) {
     console.log(error);
