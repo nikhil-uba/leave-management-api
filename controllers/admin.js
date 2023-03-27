@@ -5,11 +5,6 @@ const createAdmin = async (req, res) => {
   const candidateId = req.body.userId;
 
   const user = await User.findOne({ _id: id, isAdmin: true });
-  console.log(
-    "admin.js",
-    "checking what User.findOne({ _id: id }) yields: ",
-    user
-  );
   if (!user) {
     return res
       .status(404)

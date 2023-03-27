@@ -4,7 +4,6 @@ const mongoose = require("mongoose");
 const getAllUsers = async (req, res) => {
   const id = req.user.userId;
   const user = await User.findOne({ _id: id, isAdmin: true });
-  console.log(user);
   if (!user) {
     return res.status(404).json({ msg: `You are not an admin` });
   }

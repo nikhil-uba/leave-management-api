@@ -2,11 +2,11 @@ require("dotenv").config();
 require("express-async-errors");
 
 //for security, using helmet package
+const path = require("path");
 const helmet = require("helmet");
 const cors = require("cors");
 const xss = require("xss-clean");
 const rateLimiter = require("express-rate-limit");
-const multer = require("multer");
 
 const express = require("express");
 const app = express();
@@ -27,29 +27,6 @@ const corsOptions = {
   allowedHeaders: ["Content-Type", "Authorization"],
 };
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, "profileImages/");
-  },
-  filename: (req, file, cb) => {
-    cb(null, file.fieldname + "-" + Date.now());
-  },
-});
-
-const fileFilter = (req, file, cb) => {
-  if (
-    file.mimeType === "image/png" ||
-    file.mimeType === "image/jpg" ||
-    file.mimeType === "image/jpeg"
-  ) {
-    cb(null, true);
-  } else {
-    cb(null, false);
-  }
-};
-
-const upload = multer({ storage: storage });
-
 app.set("trust proxy", 1);
 app.use(
   rateLimiter({
@@ -58,15 +35,23 @@ app.use(
   })
 );
 
-app.use(express.json());
-
-//file upload
-app.use(upload.single("file"));
-app.use(upload.array("files", 10));
-
-app.use(helmet());
+app.use(
+  helmet({
+    crossOriginResourcePolicy: false,
+  })
+);
 app.use(cors(corsOptions));
 app.use(xss());
+
+app.use(express.json());
+app.use(
+  "/storage/profile/images",
+  express.static(path.join(__dirname, "storage/profile/images"))
+);
+app.use(
+  "/storage/leave/attachments",
+  express.static(path.join(__dirname, "storage/leave/attachments"))
+);
 
 app.use("/api/v1/auth", authRouter);
 app.use("/api/v1/profiles", auth, profileRouter);
