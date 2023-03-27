@@ -4,7 +4,6 @@ const register = async (req, res) => {
   try {
     const user = await User.create({ ...req.body });
     const token = user.createJWT();
-    console.log("User created");
     res.status(200).json({
       user: { userId: user._id, username: user.username, email: user.email },
       token,

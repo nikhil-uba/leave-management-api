@@ -4,16 +4,22 @@ const Leave = require("../model/Leave");
 const nodemailer = require("nodemailer");
 
 const takeLeave = async (req, res) => {
+  const data = JSON.parse(req.body.data);
   const userId = req.user.userId;
   const email = req.user.email;
-  const squad = req.body.squad;
-  const leaveType = req.body.leaveType;
-  const leaveStart = req.body.leaveStart;
-  const fromDate = req.body.fromDate;
-  const toDate = req.body.toDate;
-  const leaveDetail = req.body.leaveDetail;
-  const sendEmail = req.body.sendEmail;
-  const attachment = req.body.attachment;
+  const squad = data.squad;
+  const leaveType = data.leaveType;
+  const leaveStart = data.leaveStart;
+  const fromDate = data.fromDate;
+  const toDate = data.toDate;
+  const leaveDetail = data.leaveDetail;
+  const sendEmail = data.sendEmail;
+  let attachment = data.attachment;
+  const files = req.files;
+
+  if (files) {
+    attachment = files.map((file) => ({ filepath: file.path }));
+  }
 
   if (!userId) {
     res.status(400).json({ msg: "You aren't logged in" });
@@ -35,8 +41,6 @@ const takeLeave = async (req, res) => {
 
     const applierSquadMates = await User.find({ squad: applierSquad }, "email");
 
-    console.log(applierSquadMates);
-
     let squadMateEmails = [];
     applierSquadMates.forEach((squadMate) => {
       if (squadMate.email != req.user.email) {
@@ -51,7 +55,6 @@ const takeLeave = async (req, res) => {
 
     const leave = await Leave.create({
       userId,
-      email,
       squad,
       leaveType,
       leaveStart,
@@ -59,6 +62,7 @@ const takeLeave = async (req, res) => {
       toDate,
       leaveDetail,
       sendEmail,
+      attachment,
     });
 
     await User.findOneAndUpdate(

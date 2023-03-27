@@ -1,14 +1,21 @@
 const User = require("../model/User");
 
 const createProfile = async (req, res) => {
+  const data = JSON.parse(req.body.data);
   const id = req.user.userId;
+  let profileImage;
+
+  const file = req.file;
+  if (file) {
+    profileImage = { filepath: file.path };
+  }
 
   const user = await User.findOne({ _id: id });
 
   if (!user.hasProfile) {
     const profile = await User.findOneAndUpdate(
       { _id: id },
-      { ...req.body, hasProfile: true },
+      { ...data, hasProfile: true, profileImage },
       { new: true, select: "-password" }
     );
     return res.status(200).json({ profile });
@@ -21,7 +28,6 @@ const createProfile = async (req, res) => {
 const getAllProfiles = async (req, res) => {
   const id = req.user.userId;
   const userFound = await User.findOne({ _id: id });
-  console.log(userFound);
   if (!userFound) {
     return res.status(404).json({ msg: `You are not an admin` });
   } else {
@@ -63,7 +69,6 @@ const deleteProfile = async (req, res) => {
 
   const id = req.user.userId;
   const userFound = await User.findOne({ _id: id, isAdmin: true });
-  console.log(userFound);
   if (!userFound) {
     return res.status(404).json({ msg: `You are not an admin` });
   } else {
@@ -75,10 +80,17 @@ const deleteProfile = async (req, res) => {
 const updateProfile = async (req, res) => {
   //we can only update name team and department
   const requestor = req.user.email;
+  const data = JSON.parse(req.body.data);
+  let profileImage;
+
+  const file = req.file;
+  if (file) {
+    profileImage = { filepath: file.path };
+  }
 
   const updatedProfile = await User.findOneAndUpdate(
     { email: requestor },
-    { ...req.body, hasProfile: true },
+    { ...data, hasProfile: true, profileImage },
     { new: true, runValidators: true, select: "-password" }
   );
 

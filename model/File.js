@@ -1,8 +1,8 @@
 const mongoose = require("mongoose");
 
 const fileSchema = new mongoose.Schema({
-  file: {
-    type: Buffer,
+  filepath: {
+    type: String,
     required: false,
   },
   filename: { type: String, required: false },
