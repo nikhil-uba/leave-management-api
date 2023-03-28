@@ -7,6 +7,7 @@ const {
   getRemainingLeaves,
   viewMyLeaveDetails,
   viewEmployeesLeave,
+  getLeaves,
 } = require("../controllers/leave");
 
 const leaveStorage = multer.diskStorage({
@@ -34,6 +35,7 @@ const leaveUpload = multer({ storage: leaveStorage, fileFilter: fileFilter });
 
 //router.route("/:id/leave").post(takeLeave)
 // router.route("/takealeave").post(takeLeave);
+router.route("/").post(getLeaves);
 router.post("/takealeave", leaveUpload.array("files", 10), takeLeave);
 
 router.route("/myremainingleaves").get(getRemainingLeaves);

@@ -23,6 +23,7 @@ const LeaveSchema = new mongoose.Schema(
         required: false,
       },
     ],
+    reviewed: { type: Boolean, default: false },
   },
   { timestamps: true }
 );
