@@ -3,6 +3,30 @@ const User = require("../model/User");
 const Leave = require("../model/Leave");
 const nodemailer = require("nodemailer");
 
+const getLeaves = async (req, res) => {
+  const {
+    filter = {},
+    offset = 0,
+    limit = null,
+    projection = "",
+    sort = { createdAt: -1 },
+    populate = "userId",
+    projPopulate = "",
+    inverse = false,
+  } = req.body.config;
+  const leaves = await Leave.find(filter)
+    .populate({ path: populate, select: `-password ${projPopulate}` })
+    .sort(sort)
+    .skip(offset)
+    .limit(limit)
+    .select(projection);
+
+  if (!leaves) {
+    return res.status(404).json({ msg: "No Leaves match was found" });
+  }
+  res.status(200).json({ leaves: leaves });
+};
+
 const takeLeave = async (req, res) => {
   const data = JSON.parse(req.body.data);
   const userId = req.user.userId;
@@ -161,6 +185,7 @@ const viewEmployeesLeave = async (req, res) => {
     .json({ employeesLeaveDetails, count: employeesLeaveDetails.length });
 };
 module.exports = {
+  getLeaves,
   takeLeave,
   getRemainingLeaves,
   viewMyLeaveDetails,

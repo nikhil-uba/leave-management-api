@@ -1,4 +1,5 @@
 const User = require("../model/User");
+const { clearImage } = require("../util/fileHelper");
 
 const createProfile = async (req, res) => {
   const data = JSON.parse(req.body.data);
@@ -86,6 +87,13 @@ const updateProfile = async (req, res) => {
   const file = req.file;
   if (file) {
     profileImage = { filepath: file.path };
+  }
+
+  const profile = await User.findOne({ email: requestor });
+  if (profile) {
+    if (profile.profileImage.filepath !== profileImage.filepath) {
+      clearImage(profile.profileImage.filepath);
+    }
   }
 
   const updatedProfile = await User.findOneAndUpdate(
