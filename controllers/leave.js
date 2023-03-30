@@ -9,7 +9,7 @@ const getLeaves = async (req, res) => {
     offset = 0,
     limit = null,
     projection = "",
-    sort = { createdAt: -1 },
+    sort = { updatedAt: -1 },
     populate = "userId",
     projPopulate = "",
     inverse = false,
