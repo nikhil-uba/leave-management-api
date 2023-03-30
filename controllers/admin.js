@@ -1,22 +1,14 @@
 const User = require("../model/User");
 
 const createAdmin = async (req, res) => {
-  const id = req.user.userId;
-  const candidateId = req.body.userId;
-
-  const user = await User.findOne({ _id: id, isAdmin: true });
-  if (!user) {
-    return res
-      .status(404)
-      .json({ error: "Unauthorized Action", message: "You are not an Admin" });
-  }
+  const candidateId = req.params.id;
 
   const candidateUser = await User.findOne({ _id: candidateId });
 
   if (!candidateUser) {
-    return res.status(400).json({
-      error: "User not found",
-      message: "User Id not registered",
+    return res.status(404).json({
+      error: "404 Not Found",
+      message: "The requested resource could not be found",
     });
   }
 
@@ -26,22 +18,18 @@ const createAdmin = async (req, res) => {
       { isAdmin: true },
       { new: true }
     );
-    return res.status(200).json({ message: "User role switched to Admin" });
+    return res
+      .status(201)
+      .json({ message: "Admin Privilege has successfully been assigned" });
   } else {
     return res
-      .status(400)
-      .json({ error: "Already an Admin", message: "User is already an Admin" });
+      .status(200)
+      .json({ message: "User already has admin privilege" });
   }
 };
 
 const getAdmins = async (req, res) => {
   const id = req.user.userId;
-  const user = await User.findOne({ _id: id, isAdmin: true });
-  if (!user) {
-    return res
-      .status(404)
-      .json({ error: "Unauthorized Action", message: "You are not an Admin" });
-  }
 
   const admins = await User.find({ isAdmin: true }).select("-password");
   return res.status(200).json({ admins });

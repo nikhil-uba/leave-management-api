@@ -76,7 +76,6 @@ const UserSchema = new mongoose.Schema(
       type: String,
       required: false,
       maxlength: 32,
-      minlength: 3,
     },
     lastName: {
       type: String,
@@ -158,10 +157,6 @@ UserSchema.methods.createJWT = function () {
   return jwt.sign(
     {
       userId: this._id,
-      username: this.username,
-      email: this.email,
-      isAdmin: this.isAdmin,
-      hasProfile: this.hasProfile,
     },
     process.env.JWT_SECRET
   );

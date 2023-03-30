@@ -3,12 +3,17 @@ const router = express.Router();
 const multer = require("multer");
 
 const {
-  takeLeave,
-  getRemainingLeaves,
-  viewMyLeaveDetails,
-  viewEmployeesLeave,
   getLeaves,
+  getUserLeaves,
+  getLeave,
+  takeLeave,
+  getLeavesRemaining,
+  getLeavesTaken,
+  updateLeave,
+  deleteLeave,
+  deleteLeaves,
 } = require("../controllers/leave");
+const isAdmin = require("../middleware/isAdmin");
 
 const leaveStorage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -33,13 +38,14 @@ const fileFilter = (req, file, cb) => {
 
 const leaveUpload = multer({ storage: leaveStorage, fileFilter: fileFilter });
 
-//router.route("/:id/leave").post(takeLeave)
-// router.route("/takealeave").post(takeLeave);
-router.route("/").post(getLeaves);
-router.post("/takealeave", leaveUpload.array("files", 10), takeLeave);
-
-router.route("/myremainingleaves").get(getRemainingLeaves);
-router.route("/myleavedetails").get(viewMyLeaveDetails);
-router.route("/employeeleavedetails").get(viewEmployeesLeave);
+router.route("/").get(isAdmin, getLeaves);
+router.route("/user").get(getUserLeaves);
+router.route("/:id").get(getLeave);
+router.route("/remaining").get(getLeavesRemaining);
+router.route("/taken").get(getLeavesTaken);
+router.route("/takealeave").post(leaveUpload.array("files", 10), takeLeave);
+router.route("/update/:id").patch(leaveUpload.array("files", 10), updateLeave);
+router.route("/delete/:id").delete(deleteLeave);
+router.route("/delete").delete(isAdmin, deleteLeaves);
 
 module.exports = router;

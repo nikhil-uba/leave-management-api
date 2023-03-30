@@ -1,42 +1,44 @@
 const User = require("../model/User");
 
-const register = async (req, res) => {
-  try {
-    const user = await User.create({ ...req.body });
-    const token = user.createJWT();
-    res.status(200).json({
-      user: { userId: user._id, username: user.username, email: user.email },
-      token,
-    });
-  } catch (error) {
-    res.status(401).json(error);
-  }
-};
-
 const login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
     if (!email || !password) {
-      res.status(400).json("Please provide email and password");
+      return res
+        .status(400)
+        .json({ error: "400 Bad Request", message: err.message });
     }
     const user = await User.findOne({ email });
     if (!user) {
-      res.status(401).json("Invalid Credentials");
+      return res
+        .status(401)
+        .json({ error: "401 Unauthorized", message: "Invalid Credentials" });
     }
     // compare password
     const isPasswordCorrect = await user.comparePassword(password);
     if (!isPasswordCorrect) {
-      res.status(401).json("Invalid Credentials");
+      return res
+        .status(401)
+        .json({ error: "401 Unauthorized", message: "Invalid Credentials" });
     }
     const token = user.createJWT();
-    res.status(200).json({
+    return res.status(200).json({
       user: { userId: user._id, username: user.username, email: user.email },
       token,
     });
-  } catch (error) {
-    res.status(401).json(error);
+  } catch (err) {
+    if (!(err instanceof Error)) {
+      err = new Error(err);
+      err.status = 500;
+    }
+
+    if (!err.status) {
+      err.status = 500;
+    }
+
+    return res.status(err.status).json({ error: err.message });
   }
 };
 
-module.exports = { register, login };
+module.exports = { login };
