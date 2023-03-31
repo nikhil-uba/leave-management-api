@@ -1,16 +1,38 @@
 require("dotenv").config();
 const Leave = require("../model/Leave");
+const User = require("../model/User");
 const nodemailer = require("nodemailer");
 
 const getLeaves = async (req, res) => {
   const page = req.query.page || 0;
-  const leaves = await Leave.find({})
-    .populate({ path: "userId", select: `-password` })
-    .sort({ updatedAt: -1 })
-    .skip(0)
-    // .skip(2 * page)
-    .limit(null)
+  const startDate = req.query.startDate;
+  const endDate = req.query.endDate;
+  const filterBy = req.query.filterBy;
+  const search = req.query.search;
+  const sortBy = req.query.sortBy;
+  const desc = req.query.desc;
+  let squadUsers = [];
+
+  if (filterBy === "Squad") {
+    const users = await User.find({ squad: search });
+    squadUsers = users.map((user) => user._id);
+  }
+  const filterConfig = filterBy
+    ? filterBy === "Squad"
+      ? { userId: { $in: squadUsers } }
+      : { updatedAt: { $gte: new Date(startDate), $lte: new Date(endDate) } }
+    : {};
+
+  const leaves = await Leave.find(filterConfig)
+    .populate({
+      path: "userId",
+      select: `-password`,
+    })
+    .sort({ [sortBy]: desc ? -1 : 1 })
+    .skip(10 * page)
+    .limit(10)
     .select("");
+
   const totalCounts = await Leave.countDocuments({});
 
   if (!leaves) {
