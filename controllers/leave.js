@@ -1,145 +1,266 @@
 require("dotenv").config();
-const Profile = require("../model/profile");
-const Admins = require("../model/Admin");
-const Leave = require("../model/leave");
+const Leave = require("../model/Leave");
+const User = require("../model/User");
 const nodemailer = require("nodemailer");
 
-const takeLeave = async (req, res) => {
-  const appliersEmail = req.user.email;
-  const appliedBy = req.user.userId; //req.user.email
+const getLeaves = async (req, res) => {
+  const page = req.query.page || 0;
+  const startDate = req.query.startDate;
+  const endDate = req.query.endDate;
+  const filterBy = req.query.filterBy;
+  const search = req.query.search;
+  const sortBy = req.query.sortBy;
+  const desc = req.query.desc;
+  let squadUsers = [];
 
-  if (!appliedBy) {
-    res.status(400).json({ msg: "You aren't logged in" });
+  if (filterBy === "Squad") {
+    const users = await User.find({ squad: search });
+    squadUsers = users.map((user) => user._id);
   }
-  const appliedByUser = await Profile.findOne({
-    profileOf: appliedBy,
+  const filterConfig = filterBy
+    ? filterBy === "Squad"
+      ? { userId: { $in: squadUsers } }
+      : { updatedAt: { $gte: new Date(startDate), $lte: new Date(endDate) } }
+    : {};
+
+  const leaves = await Leave.find(filterConfig)
+    .populate({
+      path: "userId",
+      select: `-password`,
+    })
+    .sort({ [sortBy]: desc ? -1 : 1 })
+    .skip(10 * page)
+    .limit(10)
+    .select("");
+
+  const totalCounts = await Leave.countDocuments({});
+
+  if (!leaves) {
+    return res.status(404).json({ msg: "No Leaves match was found" });
+  }
+  return res.status(200).json({ leaves, totalCounts });
+};
+
+const takeLeave = async (req, res) => {
+  const data = JSON.parse(req.body.data);
+  const userId = req.user.userId;
+  const leaveType = data.leaveType;
+  const leaveStart = data.leaveStart;
+  const fromDate = data.fromDate;
+  const toDate = data.toDate;
+  const leaveDetail = data.leaveDetail;
+  const sendEmail = data.sendEmail;
+  let attachment = data.attachment;
+  const files = req.files;
+
+  if (files) {
+    attachment = files.map((file) => ({ filepath: file.path }));
+  }
+
+  const appliedByUser = await Leave.findOne({
+    _id: userId,
   });
-  if (!appliedByUser) {
+  if (!appliedByUser.hasProfile) {
     return res
       .status(404)
-      .json({ msg: "Profile not found, you sure you made one?" });
+      .json({ error: "404 Not Found", message: "User Profile doesn't exist" });
   }
 
-  let totalLeaveRemaining = appliedByUser.LeavesRemaining;
+  let totalLeavesRemaining = appliedByUser.leavesRemaining;
+  let totalLeavesTaken = appliedByUser.leavesTaken;
 
-  if (totalLeaveRemaining > 0) {
-    let appliersTeam = appliedByUser.team;
+  if (totalLeavesRemaining > 0) {
+    let applierSquad = appliedByUser.squad;
 
-    const appliersTeammates = await Profile.find({ team: appliersTeam });
+    const applierSquadMates = await Leave.find(
+      { squad: applierSquad },
+      "email"
+    );
 
-    teammateEmails = [];
-
-    appliersTeammates.forEach((teammate) => {
-      if (teammate.email != req.user.email) {
-        return teammateEmails.push(teammate.email);
+    let squadMateEmails = [];
+    applierSquadMates.forEach((squadMate) => {
+      if (squadMate.email != req.user.email) {
+        return squadMateEmails.push(squadMate.email);
       }
     });
-
-    ////////----------------------------/*///////////////
 
     let ccEmails = [req.body.to];
-    messageReceivers = teammateEmails.concat(ccEmails);
+    messageReceivers = squadMateEmails.concat(ccEmails);
 
-    const requestor = req.user.email;
-    let leaveOf = req.body.leaveTakenBy;
-    let subject = req.body.subject;
-    let text = req.body.text;
+    const leave = await Leave.create({
+      userId,
+      leaveType,
+      leaveStart,
+      fromDate,
+      toDate,
+      leaveDetail,
+      sendEmail,
+      attachment,
+    });
 
-    if (leaveOf == requestor) {
-      await Leave.create({
-        leaveTakenBy: leaveOf,
-        to: messageReceivers,
-        subject: subject,
-        text: text,
+    await Leave.findByIdAndUpdate(
+      userId,
+      {
+        leavesRemaining: Number(totalLeavesRemaining - 1),
+        leavesTaken: Number(totalLeavesTaken + 1),
+      },
+      {
+        new: true,
+      }
+    );
+
+    if (sendEmail) {
+      let transporter = nodemailer.createTransport({
+        host: process.env.HOST,
+        port: 465,
+        secure: true,
+        auth: {
+          user: process.env.GMAIL_EMAIL,
+          pass: process.env.GMAIL_PASSWORD,
+        },
       });
 
-      await Profile.findOneAndUpdate(
-        { email: appliersEmail },
-        { LeavesRemaining: Number(totalLeaveRemaining - 1) }
-      );
+      let mailOptions = {
+        from: process.env.GMAIL_EMAIL,
+        to: messageReceivers,
+        subject: `${leaveStart}:${leaveType} Leave from ${new Date(
+          fromDate
+        )} to ${Date(toDate)} `,
+        text: leaveDetail,
+      };
 
-      ///updateOne garda 1st ma bhako ko hatdo raixa
-      //use findOneAndUpdate.
+      transporter.sendMail(mailOptions, function (err, info) {
+        if (err) {
+          console.log(err);
+        } else {
+          console.log("Email sent :" + info.response);
+        }
+      });
+      return res.status(201).json({ message: "Leave Email Sent with success" });
+    } else {
+      return res.status(201).json({ message: "Leave taken successfully." });
     }
-
-    //////////--------------------///////////////
-    let transporter = nodemailer.createTransport({
-      host: process.env.HOST,
-      port: 465,
-      secure: true,
-      auth: {
-        user: process.env.GMAIL_EMAIL,
-        pass: process.env.GMAIL_PASSWORD,
-      },
-    });
-
-    let mailOptions = {
-      from: process.env.GMAIL_EMAIL,
-      to: messageReceivers,
-      subject: subject,
-      text: text,
-    };
-
-    transporter.sendMail(mailOptions, function (err, info) {
-      if (err) {
-        console.log(err);
-      } else {
-        console.log("Email sent :" + info.response);
-      }
-    });
-    res.status(200).json({ msg: "Sent email" });
   } else {
-    res.status(400).send(`You've already used all your leaves`);
+    return res
+      .status(403)
+      .json({ error: "403 Forbidden", message: "Leaves Exhausted" });
   }
 };
 
-const getRemainingLeaves = async (req, res) => {
-  const requestor = req.user.email;
+const getLeavesRemaining = async (req, res) => {
+  const userId = req.user.userId;
 
-  const validRequest = await Profile.findOne({ email: requestor });
+  const user = await Leave.findById(userId);
 
-  if (!validRequest) {
-    return res.status(500).send("something went wrong. Try again");
+  if (!user) {
+    return res
+      .status(404)
+      .json({ error: "404 Not Found", message: "User not Found" });
   }
 
-  const LeaveRemaining = validRequest.LeavesRemaining;
-
-  res
-    .status(200)
-    .json({ msg: `your remaining leaves are ${LeaveRemaining} days` });
+  return res.status(200).json({ leavesRemaining: user.leavesRemaining });
 };
 
-const viewMyLeaveDetails = async (req, res) => {
-  const myLeaves = await Leave.find({ leaveTakenBy: req.user.email });
+const getLeavesTaken = async (req, res) => {
+  const userId = req.user.userId;
 
-  if (!myLeaves) {
-    return res.status(400).send("You have not taken any leaves yet");
+  const user = await Leave.findById(userId);
+
+  if (!user) {
+    return res
+      .status(404)
+      .json({ error: "404 Not Found", message: "User not Found" });
   }
 
-  res.status(200).json({ myLeaves, count: myLeaves.length });
+  return res.status(200).json({ leavesRemaining: user.leavesTaken });
 };
 
-const viewEmployeesLeave = async (req, res) => {
-  const ID = req.user.userId;
-  const userFound = await Admins.findOne({ userID: ID });
+const getUserLeaves = async (req, res) => {
+  const leaves = await Leave.find({ userId: req.user.userId });
 
-  if (!userFound) {
-    return res.status(404).json({ msg: `You are not an admin` });
+  if (!leaves) {
+    return res
+      .status(404)
+      .json({ error: "404 Not Found", message: "No Leaves Found" });
   }
 
-  const employeesLevaeDetails = await Leave.find({
-    leaveTakenBy: req.body.email,
+  return res.status(200).json({ leaves });
+};
+
+const getLeave = async (req, res) => {
+  const leave = await Leave.findOne({
+    _id: req.params.id,
+    userId: req.user.userId,
   });
-  if (!employeesLevaeDetails) {
-    return res.status(400).send("The employee has not taken any leaves yet");
+
+  if (!leave) {
+    return res
+      .status(404)
+      .json({ error: "404 Not Found", message: "Leave not Found" });
   }
-  res
-    .status(200)
-    .json({ employeesLevaeDetails, count: employeesLevaeDetails.length });
+
+  return res.status(200).json({ leave });
 };
+
+const updateLeave = async (req, res) => {
+  try {
+    const leave = await Leave.findByIdAndUpdate(
+      req.params.id,
+      { ...req.body },
+      { new: true }
+    );
+    if (!leave) {
+      return res
+        .status(404)
+        .json({ error: "404 Not Found", message: "Leave not found" });
+    }
+    return res.status(200).json({ leave });
+  } catch (err) {
+    return res
+      .status(400)
+      .json({ error: "400 Bad Request", message: err.message });
+  }
+};
+
+const deleteLeave = async (req, res) => {
+  try {
+    const leave = Leave.findOne({
+      _id: req.params.id,
+      userId: req.user.userId,
+    });
+    if (!leave) {
+      return res
+        .status(404)
+        .json({ error: "404 Not Found", message: "Leave not found" });
+    }
+    await Leave.findByIdAndDelete(req.params.id);
+    return res.status(200).json({ message: "Leave Successfully Deleted" });
+  } catch (err) {
+    return res
+      .status(400)
+      .json({ error: "400 Bad Request", message: err.message });
+  }
+};
+
+const deleteLeaves = async (req, res) => {
+  try {
+    await Leave.deleteMany({ _id: { $in: req.body } });
+    return res.status(200).json({ message: "Leaves Successfully Deleted" });
+  } catch (err) {
+    return res
+      .status(400)
+      .json({ error: "400 Bad Request", message: err.message });
+  }
+};
+
 module.exports = {
+  getLeaves,
+  getUserLeaves,
+  getLeave,
   takeLeave,
-  getRemainingLeaves,
-  viewMyLeaveDetails,
-  viewEmployeesLeave,
+  getLeavesRemaining,
+  getLeavesTaken,
+  updateLeave,
+  deleteLeave,
+  deleteLeaves,
 };

@@ -1,43 +1,37 @@
 const User = require("../model/User");
-const Admin = require("../model/Admin");
 
 const createAdmin = async (req, res) => {
-  const ID = req.user.userId;
-  const userFound = await Admin.findOne({ userID: ID });
-  console.log(userFound);
-  if (!userFound) {
-    return res.status(404).json({ msg: `You are not an admin` });
+  const candidateId = req.params.id;
+
+  const candidateUser = await User.findOne({ _id: candidateId });
+
+  if (!candidateUser) {
+    return res.status(404).json({
+      error: "404 Not Found",
+      message: "The requested resource could not be found",
+    });
   }
 
-  const adminUserId = req.body.userID;
-
-  const userExists = await User.find({ _id: adminUserId });
-
-  if (!userExists) {
-    return res.status(400).json("The user doesn't exist");
-  }
-
-  const adminExists = await Admin.find({ userID: adminUserId });
-
-  if (adminExists == null || adminExists.length == "0") {
-    const admin = await Admin.create(req.body);
+  if (!candidateId.isAdmin) {
+    const admin = await User.findByIdAndUpdate(
+      candidateId,
+      { isAdmin: true },
+      { new: true }
+    );
+    return res
+      .status(201)
+      .json({ message: "Admin Privilege has successfully been assigned" });
+  } else {
     return res
       .status(200)
-      .json({ msg: `Admin created successfully. Details: ${admin}` });
-  } else {
-    return res.status(400).json("Your Profile already Exists");
+      .json({ message: "User already has admin privilege" });
   }
 };
 
 const getAdmins = async (req, res) => {
-  const ID = req.user.userId;
-  const userFound = await Admin.findOne({ userID: ID });
-  console.log(userFound);
-  if (!userFound) {
-    return res.status(404).json({ msg: `You are not an admin` });
-  }
+  const id = req.user.userId;
 
-  const admins = await Admin.find({});
+  const admins = await User.find({ isAdmin: true }).select("-password");
   return res.status(200).json({ admins });
 };
 

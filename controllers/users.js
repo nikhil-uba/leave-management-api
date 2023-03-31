@@ -1,33 +1,86 @@
 const User = require("../model/User");
-const Admin = require("../model/Admin");
+const mongoose = require("mongoose");
 
-const getUser = async (req, res) => {
-  /* const {params:{id : userId}} = req
-    
-    const user = await User.findOne({
-        _id: userId
-    })
-    if(!user){
-        return res.status(404).json({msg:"User Not Available"})
-    }
-    if(Admins.includes(user.role)){
-        const users = await User.find({})
-        return res.status(200).json({users})
-    }
-    else{
-        return res.status(200).json({msg:"You aren't an admin"})
-    } */
-
-  const ID = req.user.userId;
-  const userFound = await Admin.findOne({ userID: ID });
-  console.log(userFound);
-  if (!userFound) {
-    return res.status(404).json({ msg: `You are not an admin` });
+const createUser = async (req, res) => {
+  try {
+    const user = await User.create({ ...req.body });
+    const token = user.createJWT();
+    return res.status(201).json({
+      user: { userId: user._id, username: user.username, email: user.email },
+      token,
+    });
+  } catch (err) {
+    return res
+      .status(400)
+      .json({ error: "400 Bad Request", message: err.message });
   }
-  const users = await User.find({});
-  return res.status(200).json({ users });
 };
 
-module.exports = { getUser };
+const getUser = async (req, res) => {
+  const user = await User.findOne({
+    _id: new mongoose.Types.ObjectId(req.params.id),
+  }).select("-password");
+  if (!user) {
+    return res
+      .status(404)
+      .json({ error: "404 Not Found", message: "User not found" });
+  }
+  return res.status(200).json({
+    user,
+  });
+};
 
-//create CRUD for an admin and user
+const updateUser = async (req, res) => {
+  try {
+    const user = await User.findByIdAndUpdate(
+      req.params.id,
+      { ...req.body },
+      { new: true }
+    );
+    if (!user) {
+      return res
+        .status(404)
+        .json({ error: "404 Not Found", message: "User not found" });
+    }
+    return res.status(200).json({ user });
+  } catch (err) {
+    return res
+      .status(400)
+      .json({ error: "400 Bad Request", message: err.message });
+  }
+};
+
+const deleteUser = async (req, res) => {
+  try {
+    await User.findByIdAndDelete(req.params.id);
+    return res.status(200).json({ message: "User Successfully Deleted" });
+  } catch (err) {
+    return res
+      .status(400)
+      .json({ error: "400 Bad Request", message: err.message });
+  }
+};
+
+const getUsers = async (req, res) => {
+  const users = await User.find({}).select("-password");
+  return res.status(200).json({ users });
+};
+const deleteUsers = async (req, res) => {
+  try {
+    await User.deleteMany({ _id: { $in: req.body } });
+    return res.status(200).json({ message: "User Successfully Deleted" });
+  } catch (err) {
+    return res
+      .status(400)
+      .json({ error: "400 Bad Request", message: err.message });
+  }
+};
+
+module.exports = {
+  createUser,
+  getUser,
+  updateUser,
+  deleteUser,
+  getUsers,
+  deleteUsers,
+};

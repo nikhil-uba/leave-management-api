@@ -1,114 +1,76 @@
-const Profile = require("../model/profile");
-const Admins = require("../model/Admin");
+const User = require("../model/User");
+const { clearImage } = require("../util/file/fileHelper");
 
-const createProfile = async (req, res) => {
-  const userEmail = req.user.email;
-  const enteredEmail = req.body.email;
-
-  if (userEmail != enteredEmail) {
-    return res.status(400).json({ msg: "Please enter your registered email" });
-  }
-
-  req.body.profileOf = req.user.userId;
-  const checkProfile = req.body.profileOf;
-  const profileExists = await Profile.find({ profileOf: checkProfile });
-  if (profileExists == null || profileExists.length == "0") {
-    const profile = await Profile.create(req.body);
-    return res.status(200).json({ profile });
-  } else {
-    return res.status(400).json("Your Profile already Exists");
-  }
-};
-
-//admins can access all profiles
-const getAllProfiles = async (req, res) => {
-  const ID = req.user.userId;
-  const userFound = await Admins.findOne({ userID: ID });
-  console.log(userFound);
-  if (!userFound) {
-    return res.status(404).json({ msg: `You are not an admin` });
-  } else {
-    const profiles = await Profile.find({});
-    return res.status(200).json({ profiles });
-  }
-};
-
-//we dont know the profile id yet
-//so we use userId to get the profile
 const getProfile = async (req, res) => {
-  //this userId is an alias of the id which is taken from parameter
-  const requestor = req.user.email;
+  try {
+    const user = await User.findById(req.user.userId).select("-password");
+    if (!user) {
+      return res
+        .status(404)
+        .json({ error: "404 Not Found", message: "User not Found" });
+    } else {
+      return res.status(200).json({ user });
+    }
+  } catch (err) {
+    if (!(err instanceof Error)) {
+      err = new Error(err);
+      err.status = 500;
+    }
 
-  const userProfile = await Profile.findOne({
-    email: requestor,
-  });
-  if (!userProfile) {
-    return res.status(404).json({ msg: "User Not Available" });
-  } else {
-    return res.status(200).json({ userProfile });
-  }
-};
+    if (!err.status) {
+      err.status = 500;
+    }
 
-//we need profile id of a profile to delete that profile
-//we take profile from the body(text box)
-const deleteProfile = async (req, res) => {
-  //this userId gives the id of the individual that is logged in
-
-  const profileToDelete = req.body.email;
-
-  const userProfile = await Profile.findOne({
-    email: profileToDelete,
-  });
-
-  if (!userProfile) {
-    return res.status(404).json("Profile Not Available");
-  }
-
-  const ID = req.user.userId;
-  const userFound = await Admins.findOne({ userID: ID });
-  console.log(userFound);
-  if (!userFound) {
-    return res.status(404).json({ msg: `You are not an admin` });
-  } else {
-    await Profile.findOneAndDelete({ email: profileToDelete });
-    return res.status(200).json("Removed Profile Successfully");
+    return res.status(err.status).json({ error: err.message });
   }
 };
 
 const updateProfile = async (req, res) => {
-  //we can only update name team and department
-  const requestor = req.user.email;
-  const {
-    body: { name, team, department },
-  } = req;
+  try {
+    const data = JSON.parse(req.body.data);
+    let profileImage;
 
-  if (name === "" || team === "" || department == "") {
-    res
-      .status(403)
-      .json({
-        msg: "Please be sure to fill all the available fields to update",
-      });
+    const file = req.file;
+    if (file) {
+      profileImage = { filepath: file.path };
+    }
+
+    const user = await User.findById(req.user.userId);
+
+    if (!user) {
+      return res
+        .status(404)
+        .json({ error: "404 Not Found", message: "User not Found" });
+    }
+
+    if (user.profileImage) {
+      if (user.profileImage.filepath !== profileImage.filepath) {
+        clearImage(user.profileImage.filepath);
+      }
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(
+      req.user.userId,
+      { ...data, hasProfile: true, profileImage },
+      { new: true, runValidators: true, select: "-password" }
+    );
+
+    return res.status(200).json({ updatedUser });
+  } catch (err) {
+    if (!(err instanceof Error)) {
+      err = new Error(err);
+      err.status = 500;
+    }
+
+    if (!err.status) {
+      err.status = 500;
+    }
+
+    return res.status(err.status).json({ error: err.message });
   }
-
-  const updatedProfile = await Profile.findOneAndUpdate(
-    { email: requestor },
-    req.body,
-    { new: true, runValidators: true }
-  );
-
-  if (!updatedProfile) {
-    return res
-      .status(404)
-      .json({ msg: `The profile with email ${requestor} does not exist` });
-  }
-
-  res.status(200).json({ updatedProfile });
 };
 
 module.exports = {
-  getAllProfiles,
   getProfile,
-  createProfile,
-  deleteProfile,
   updateProfile,
 };
