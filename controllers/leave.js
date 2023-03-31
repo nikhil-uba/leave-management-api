@@ -1,37 +1,49 @@
 require("dotenv").config();
-const User = require("../model/User");
 const Leave = require("../model/Leave");
+const User = require("../model/User");
 const nodemailer = require("nodemailer");
 
 const getLeaves = async (req, res) => {
-  const {
-    filter = {},
-    offset = 0,
-    limit = null,
-    projection = "",
-    sort = { createdAt: -1 },
-    populate = "userId",
-    projPopulate = "",
-    inverse = false,
-  } = req.body.config;
-  const leaves = await Leave.find(filter)
-    .populate({ path: populate, select: `-password ${projPopulate}` })
-    .sort(sort)
-    .skip(offset)
-    .limit(limit)
-    .select(projection);
+  const page = req.query.page || 0;
+  const startDate = req.query.startDate;
+  const endDate = req.query.endDate;
+  const filterBy = req.query.filterBy;
+  const search = req.query.search;
+  const sortBy = req.query.sortBy;
+  const desc = req.query.desc;
+  let squadUsers = [];
+
+  if (filterBy === "Squad") {
+    const users = await User.find({ squad: search });
+    squadUsers = users.map((user) => user._id);
+  }
+  const filterConfig = filterBy
+    ? filterBy === "Squad"
+      ? { userId: { $in: squadUsers } }
+      : { updatedAt: { $gte: new Date(startDate), $lte: new Date(endDate) } }
+    : {};
+
+  const leaves = await Leave.find(filterConfig)
+    .populate({
+      path: "userId",
+      select: `-password`,
+    })
+    .sort({ [sortBy]: desc ? -1 : 1 })
+    .skip(10 * page)
+    .limit(10)
+    .select("");
+
+  const totalCounts = await Leave.countDocuments({});
 
   if (!leaves) {
     return res.status(404).json({ msg: "No Leaves match was found" });
   }
-  res.status(200).json({ leaves: leaves });
+  return res.status(200).json({ leaves, totalCounts });
 };
 
 const takeLeave = async (req, res) => {
   const data = JSON.parse(req.body.data);
   const userId = req.user.userId;
-  const email = req.user.email;
-  const squad = data.squad;
   const leaveType = data.leaveType;
   const leaveStart = data.leaveStart;
   const fromDate = data.fromDate;
@@ -45,16 +57,13 @@ const takeLeave = async (req, res) => {
     attachment = files.map((file) => ({ filepath: file.path }));
   }
 
-  if (!userId) {
-    res.status(400).json({ msg: "You aren't logged in" });
-  }
-  const appliedByUser = await User.findOne({
+  const appliedByUser = await Leave.findOne({
     _id: userId,
   });
   if (!appliedByUser.hasProfile) {
     return res
       .status(404)
-      .json({ msg: "Profile not found, you sure you made one?" });
+      .json({ error: "404 Not Found", message: "User Profile doesn't exist" });
   }
 
   let totalLeavesRemaining = appliedByUser.leavesRemaining;
@@ -63,7 +72,10 @@ const takeLeave = async (req, res) => {
   if (totalLeavesRemaining > 0) {
     let applierSquad = appliedByUser.squad;
 
-    const applierSquadMates = await User.find({ squad: applierSquad }, "email");
+    const applierSquadMates = await Leave.find(
+      { squad: applierSquad },
+      "email"
+    );
 
     let squadMateEmails = [];
     applierSquadMates.forEach((squadMate) => {
@@ -72,14 +84,11 @@ const takeLeave = async (req, res) => {
       }
     });
 
-    ////////----------------------------/*///////////////
-
     let ccEmails = [req.body.to];
     messageReceivers = squadMateEmails.concat(ccEmails);
 
     const leave = await Leave.create({
       userId,
-      squad,
       leaveType,
       leaveStart,
       fromDate,
@@ -89,8 +98,8 @@ const takeLeave = async (req, res) => {
       attachment,
     });
 
-    await User.findOneAndUpdate(
-      { email: email },
+    await Leave.findByIdAndUpdate(
+      userId,
       {
         leavesRemaining: Number(totalLeavesRemaining - 1),
         leavesTaken: Number(totalLeavesTaken + 1),
@@ -100,10 +109,6 @@ const takeLeave = async (req, res) => {
       }
     );
 
-    ///updateOne garda 1st ma bhako ko hatdo raixa
-    //use findOneAndUpdate.
-
-    //////////--------------------///////////////
     if (sendEmail) {
       let transporter = nodemailer.createTransport({
         host: process.env.HOST,
@@ -131,63 +136,131 @@ const takeLeave = async (req, res) => {
           console.log("Email sent :" + info.response);
         }
       });
-      res.status(200).json({ msg: "Leave Email Sent with success" });
+      return res.status(201).json({ message: "Leave Email Sent with success" });
     } else {
-      res.status(200).json({ msg: "Leave taken successfully." });
+      return res.status(201).json({ message: "Leave taken successfully." });
     }
   } else {
-    res.status(400).send(`You've already used all your leaves`);
+    return res
+      .status(403)
+      .json({ error: "403 Forbidden", message: "Leaves Exhausted" });
   }
 };
 
-const getRemainingLeaves = async (req, res) => {
-  const requestor = req.user.email;
+const getLeavesRemaining = async (req, res) => {
+  const userId = req.user.userId;
 
-  const validRequest = await User.findOne({ email: requestor });
+  const user = await Leave.findById(userId);
 
-  if (!validRequest) {
-    return res.status(500).send("something went wrong. Try again");
+  if (!user) {
+    return res
+      .status(404)
+      .json({ error: "404 Not Found", message: "User not Found" });
   }
 
-  const leavesRemaining = validRequest.leavesRemaining;
-
-  res
-    .status(200)
-    .json({ msg: `your remaining leaves are ${leavesRemaining} days` });
+  return res.status(200).json({ leavesRemaining: user.leavesRemaining });
 };
 
-const viewMyLeaveDetails = async (req, res) => {
-  const myLeaves = await Leave.find({ userId: req.user.userId });
+const getLeavesTaken = async (req, res) => {
+  const userId = req.user.userId;
 
-  if (!myLeaves) {
-    return res.status(400).send("You have not taken any leaves yet");
+  const user = await Leave.findById(userId);
+
+  if (!user) {
+    return res
+      .status(404)
+      .json({ error: "404 Not Found", message: "User not Found" });
   }
 
-  res.status(200).json({ myLeaves, count: myLeaves.length });
+  return res.status(200).json({ leavesRemaining: user.leavesTaken });
 };
 
-const viewEmployeesLeave = async (req, res) => {
-  const id = req.user.userId;
-  const userFound = await User.findOne({ _id: id, isAdmin: true });
+const getUserLeaves = async (req, res) => {
+  const leaves = await Leave.find({ userId: req.user.userId });
 
-  if (!userFound) {
-    return res.status(404).json({ msg: `You are not an admin` });
+  if (!leaves) {
+    return res
+      .status(404)
+      .json({ error: "404 Not Found", message: "No Leaves Found" });
   }
 
-  const employeesLeaveDetails = await Leave.find({
-    leaveTakenBy: req.body.email,
+  return res.status(200).json({ leaves });
+};
+
+const getLeave = async (req, res) => {
+  const leave = await Leave.findOne({
+    _id: req.params.id,
+    userId: req.user.userId,
   });
-  if (!employeesLeaveDetails) {
-    return res.status(400).send("The employee has not taken any leaves yet");
+
+  if (!leave) {
+    return res
+      .status(404)
+      .json({ error: "404 Not Found", message: "Leave not Found" });
   }
-  res
-    .status(200)
-    .json({ employeesLeaveDetails, count: employeesLeaveDetails.length });
+
+  return res.status(200).json({ leave });
 };
+
+const updateLeave = async (req, res) => {
+  try {
+    const leave = await Leave.findByIdAndUpdate(
+      req.params.id,
+      { ...req.body },
+      { new: true }
+    );
+    if (!leave) {
+      return res
+        .status(404)
+        .json({ error: "404 Not Found", message: "Leave not found" });
+    }
+    return res.status(200).json({ leave });
+  } catch (err) {
+    return res
+      .status(400)
+      .json({ error: "400 Bad Request", message: err.message });
+  }
+};
+
+const deleteLeave = async (req, res) => {
+  try {
+    const leave = Leave.findOne({
+      _id: req.params.id,
+      userId: req.user.userId,
+    });
+    if (!leave) {
+      return res
+        .status(404)
+        .json({ error: "404 Not Found", message: "Leave not found" });
+    }
+    await Leave.findByIdAndDelete(req.params.id);
+    return res.status(200).json({ message: "Leave Successfully Deleted" });
+  } catch (err) {
+    return res
+      .status(400)
+      .json({ error: "400 Bad Request", message: err.message });
+  }
+};
+
+const deleteLeaves = async (req, res) => {
+  try {
+    await Leave.deleteMany({ _id: { $in: req.body } });
+    return res.status(200).json({ message: "Leaves Successfully Deleted" });
+  } catch (err) {
+    return res
+      .status(400)
+      .json({ error: "400 Bad Request", message: err.message });
+  }
+};
+
 module.exports = {
   getLeaves,
+  getUserLeaves,
+  getLeave,
   takeLeave,
-  getRemainingLeaves,
-  viewMyLeaveDetails,
-  viewEmployeesLeave,
+  getLeavesRemaining,
+  getLeavesTaken,
+  updateLeave,
+  deleteLeave,
+  deleteLeaves,
 };

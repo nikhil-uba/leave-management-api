@@ -2,13 +2,7 @@ const express = require("express");
 const multer = require("multer");
 const router = express.Router();
 
-const {
-  deleteProfile,
-  getProfile,
-  createProfile,
-  getAllProfiles,
-  updateProfile,
-} = require("../controllers/profile");
+const { getProfile, updateProfile } = require("../controllers/profile");
 
 const profileStorage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -36,15 +30,7 @@ const profileUpload = multer({
   fileFilter: fileFilter,
 });
 
-router
-  .route("/")
-  .get(getAllProfiles)
-  .post(profileUpload.single("file"), createProfile);
-//router.route("/:id").get(getProfile).delete(deleteProfile);
-router.route("/getMyProfile").get(getProfile);
-router.route("/deleteProfile").delete(deleteProfile);
-router
-  .route("/updateMyProfile")
-  .patch(profileUpload.single("file"), updateProfile);
+router.route("/").get(getProfile);
+router.route("/update").patch(profileUpload.single("file"), updateProfile);
 
 module.exports = router;
